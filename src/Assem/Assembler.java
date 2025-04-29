@@ -294,22 +294,24 @@ public class Assembler {
 		// TODO Auto-generated method stub
 		 codeList.clear();
 
-		    // TokenList: 섹션별 TokenTable 리스트
-		    for (TokenTable tokTab : TokenList) {
-		        // 섹션 내 토큰 수만큼 반복
+		    
+		    for (int sec = 0; sec < TokenList.size(); sec++) {
+		        TokenTable   tokTab = TokenList   .get(sec);
+		        SymbolTable  symTab = symtabList   .get(sec);
+		        LiteralTable litTab = literalList  .get(sec);
+
+		        // 이 TokenTable.makeObjectCode 내부에서 
+		        // symTab.searchSymbol(), litTab.searchLiteral() 만 쓰게 됩니다.
 		        for (int i = 0; i < tokTab.size(); i++) {
-		            // 1) object code 생성
 		            tokTab.makeObjectCode(i);
-		            // 2) 생성된 object code 문자열 가져오기
 		            String obj = tokTab.getObjectCode(i);
-		            // 3) 비어있지 않은 코드만 코드 리스트에 추가
 		            if (obj != null && !obj.isEmpty()) {
 		                codeList.add(obj);
 		            }
 		        }
 		        System.out.println(codeList);
+		        
 		    }
-		   
 	}
 
 	/**
@@ -318,67 +320,6 @@ public class Assembler {
 	 */
 	private void printObjectCode(String fileName) {
 		// TODO Auto-generated method stub
-		try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
-	        // 섹션 단위로 출력
-	        for (Section sec : sections) {
-	            // --- H 레코드 ---
-	            // 프로그램 이름 6자리, 시작 주소(6자리), 길이(6자리)
-	            bw.write(String.format("H%-6s%06X%06X",
-	                    sec.name,
-	                    sec.startAddress,
-	                    sec.length));
-	            bw.newLine();
-
-	            // --- D 레코드 (EXTDEF) ---
-	            if (!sec.defines.isEmpty()) {
-	                bw.write("D");
-	                for (Section.Define d : sec.defines) {
-	                    bw.write(String.format("%-6s%06X",
-	                            d.symbol, d.address));
-	                }
-	                bw.newLine();
-	            }
-
-	            // --- R 레코드 (EXTREF) ---
-	            if (!sec.references.isEmpty()) {
-	                bw.write("R");
-	                for (String ref : sec.references) {
-	                    bw.write(String.format("%-6s", ref));
-	                }
-	                bw.newLine();
-	            }
-
-	            // --- T 레코드 (텍스트 레코드들) ---
-	            for (Section.TextRecord tr : sec.textRecords) {
-	                // 시작 주소 6자리, 길이 2자리
-	                bw.write(String.format("T%06X%02X",
-	                        tr.startAddress, tr.length));
-	                // 실제 object code 덧붙이기
-	                for (String obj : tr.objectCodes) {
-	                    bw.write(obj);
-	                }
-	                bw.newLine();
-	            }
-
-	            // --- M 레코드 (모디피케이션 레코드들) ---
-	            for (Section.Modification m : sec.modifications) {
-	                bw.write(String.format("M%06X%02X%s",
-	                        m.address, m.length, m.symbol));
-	                bw.newLine();
-	            }
-
-	            // --- E 레코드 (엔드 레코드) ---
-	            // 메인 섹션(첫 섹션)에는 시작 주소를, 이후 섹션은 단순 "E"
-	            if (sec.isMain) {
-	                bw.write(String.format("E%06X", sec.startAddress));
-	            } else {
-	                bw.write("E");
-	            }
-	            bw.newLine();
-	            bw.newLine();  // 섹션 간 구분을 위해 한 줄 띄움
-	        }
-	    } catch (IOException e) {
-	        System.err.println("Error writing object code: " + e.getMessage());
-	    }
+		
 	}
 }

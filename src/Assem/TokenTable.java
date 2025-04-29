@@ -63,116 +63,95 @@ public class TokenTable {
 	 * @param index
 	 */
 	 public void makeObjectCode(int index) {
-		 	Token t = tokenList.get(index);
-
-		    // operator 가 없으면 스킵
-		    if (t.operator == null) {
-		        t.objectCode = "";
-		        t.byteSize   = 0;
-		        return;
-		    }
-
-		    // nixbpe 플래그 초기화
-		    t.nixbpe = 0;
-
-		    // --------------------------------------------------------
-		    // 1) n,i 설정 전에 operand[0] 유효성부터 검사
-		    String op0 = null;
-		    if (t.operand != null && t.operand.length > 0) {
-		        op0 = t.operand[0];
-		    }
-		    if (op0 != null && !op0.isEmpty()) {
-		        char c0 = op0.charAt(0);
-		        if (c0 == '@') {
-		            t.nixbpe |= nFlag;
-		        } else if (c0 == '#') {
-		            t.nixbpe |= iFlag;
-		        } else {
-		            t.nixbpe |= (nFlag | iFlag);
-		        }
-		    }
-		    // --------------------------------------------------------
-
-		    // x 플래그
-		    if (t.operand != null && t.operand.length > 1 && "X".equals(t.operand[1])) {
-		        t.nixbpe |= xFlag;
-		    }
-
-	        // 3) format4 '+' 체크
-	        boolean isFormat4 = false;
-	        String mnem = t.operator;
-	        if (mnem.charAt(0) == '+') {
-	            isFormat4 = true;
-	            t.nixbpe |= eFlag;
-	            mnem = mnem.substring(1);
-	        }
-
-	        // 4) Instruction 조회
-	        Instruction inst = instTab.getInstruction(mnem);
-	        if (inst == null) {
-	            // 정의되지 않은 mnemonic
+		 	
+		 Token t = getToken(index);
+	        // 1) operator 없으면 스킵
+	        if (t.operator == null) {
 	            t.objectCode = "";
 	            t.byteSize   = 0;
 	            return;
 	        }
+	        // 2) 플래그 초기화
+	        t.nixbpe = 0;
+	        String op0 = (t.operand!=null && t.operand.length>0) ? t.operand[0] : null;
+	        if (op0 != null && !op0.isEmpty()) {
+	            char c0 = op0.charAt(0);
+	            if (c0 == '@')      t.nixbpe |= nFlag;
+	            else if (c0 == '#') t.nixbpe |= iFlag;
+	            else                t.nixbpe |= (nFlag|iFlag);
+	        }
+	        if (t.operand!=null && t.operand.length>1 && "X".equals(t.operand[1])) {
+	            t.nixbpe |= xFlag;
+	        }
+	        // 3) format4 체크
+	        boolean is4 = t.operator.startsWith("+");
+	        String mnem = is4 ? t.operator.substring(1) : t.operator;
+	        if (is4) t.nixbpe |= eFlag;
 
-	        // 5) 포맷 결정
-	        int fmt = isFormat4 ? 4 : inst.format;
-	        int opcode = inst.opcode & 0xFF;
+	        // 4) Instruction 조회
+	        Instruction inst = instTab.getInstruction(mnem);
+	        if (inst == null) {
+	            t.objectCode = "";
+	            t.byteSize   = 0;
+	            return;
+	        }
+	        int fmt    = is4 ? 4 : inst.format;
+	        int opcode = inst.opcode;
 	        int code = 0;
 
+	        // 5-1) format2: 레지스터 두 개
 	        if (fmt == 2) {
-	            // format 2: two-register
-	            int r1 = regNum(t.operand[0].charAt(0));
-	            int r2 = (t.operand.length>1 && t.operand[1]!=null)
-	                     ? regNum(t.operand[1].charAt(0))
-	                     : 0;
+	            int r1 = (op0!=null) ? regNum(op0.charAt(0)) : 0;
+	            int r2 = (t.operand.length>1 && t.operand[1]!=null) ? regNum(t.operand[1].charAt(0)) : 0;
 	            code = (opcode << 8) | (r1 << 4) | r2;
 	            t.byteSize = 2;
-	        } else {
-	            // format 3/4: displacement or direct
+	        }
+	        // 5-2) format3/4
+	        else {
 	            int disp = 0;
-	            String op_0 = t.operand[0];
-	            if (op_0 != null) {
-	                if (op_0.startsWith("=")) {
-	                    // literal
+	            if (op0 != null) {
+	                if (op0.startsWith("=")) {
 	                    disp = litTab.searchLiteral(op0);
-	                } else if (op_0.startsWith("@")) {
-	                    // indirect
+	                } else if (op0.startsWith("@")) {
 	                    disp = symTab.searchSymbol(op0.substring(1));
-	                } else if (op_0.startsWith("#")) {
-	                    // immediate
+	                } else if (op0.startsWith("#")) {
 	                    disp = Integer.parseInt(op0.substring(1));
 	                } else {
-	                    // PC-relative 기본
-	                    int target = symTab.searchSymbol(op_0);
-	                    int pcAddr = t.location + (fmt == 4 ? 4 : 3);
-	                    disp = target - pcAddr;
-	                    if (disp >= -2048 && disp < 2048) {
-	                        t.nixbpe |= pFlag;
-	                        disp &= 0xFFF;
-	                    } else {
-	                        t.nixbpe |= bFlag;
+	                    // 기본 PC-relative
+	                    int ta = symTab.searchSymbol(op0);
+	                    int pc = t.location + (fmt==4 ? 4 : 3);
+	                    int diff = ta - pc;
+	                    if(ta == -1) {
+	                    	disp = 0;
+	                    }else {
+	                    	 if (diff >= -2048 && diff < 2048) {
+	 	                        t.nixbpe |= pFlag;
+	 	                        disp = diff & 0xFFF;
+	 	                    } else {
+	 	                        t.nixbpe |= bFlag;
+	 	                        disp = ta; // base-relative: 실제 base 레지스터는 여기에 미리 세팅돼 있어야 함
+	 	                    }
 	                    }
+	                   
 	                }
 	            }
-	            // opcode 상위 6비트 + nixbpe 상위 2비트
-	            code = ((opcode & 0xFC) | ((t.nixbpe >> 4) & 0x03));
+	            
+	           
 	            if (fmt == 3) {
+	            	 code = ((opcode<<4) | (t.nixbpe) );
 	                code = (code << 12) | (disp & 0xFFF);
 	                t.byteSize = 3;
 	            } else {
+	            	 code = ((opcode<<4) | (nFlag|iFlag|eFlag) );
 	                code = (code << 20) | (disp & 0xFFFFF);
 	                t.byteSize = 4;
 	            }
 	        }
 
-	        // 6) 16진수 문자열로 포맷
-	        t.objectCode = String.format(
-	            "%0" + (t.byteSize * 2) + "X",
-	            code
-	        );
-	    }
+	        // 6) 16진수 문자열 생성
+	        t.objectCode = String.format("%0" + (t.byteSize*2) + "X", code);
+	 
+	 }
 	
 	public int regNum(char c) {
 	    switch (c) {
