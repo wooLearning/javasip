@@ -54,21 +54,13 @@ public class SymbolTable {
 		 return (idx < 0 ? -1 : locationList.get(idx));
 	}
 	
-	 /**
-     * 모든 symbol 목록을 반환한다.
-     *
-     * @return 등록된 symbol 리스트
-     */
-    public ArrayList<String> getSymbols() {
+	 //file 출력 위해서
+    public ArrayList<String> getSymbols() {//symbolList return
         return new ArrayList<>(symbolList);
     }
 
-    /**
-     * 모든 symbol의 주소값 목록을 반환한다.
-     *
-     * @return 주소 리스트
-     */
-    public ArrayList<Integer> getLocations() {
+  
+    public ArrayList<Integer> getLocations() {//locationList return
         return new ArrayList<>(locationList);
     }
 }

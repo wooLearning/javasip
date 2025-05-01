@@ -42,10 +42,6 @@ public class InstTable {
 	}
 
 	//get, set, search 등의 함수는 자유 구현
-
-	public int get_opcode(String operator) {
-		return instMap.get(operator).opcode;
-	}
 	
 	public Instruction getInstruction(String mnemonic) {
 	    return instMap.get(mnemonic);
@@ -95,8 +91,6 @@ class Instruction {
         opcode       = Integer.parseInt(parts[2], 16);     // 16진수로 파싱
         operandCount = Integer.parseInt(parts[3]);         // 오퍼랜드 개수
     }
-	
-		
 	//그 외 함수 자유 구현
 	
 	

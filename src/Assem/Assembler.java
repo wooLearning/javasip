@@ -41,13 +41,14 @@ public class Assembler {
 	/** 프로그램의 section별로 프로그램을 저장하는 공간*/
 	ArrayList<TokenTable> TokenList;
 	
-	ArrayList<Section> sections = new ArrayList<>();
+	ArrayList<Section> sections;
 	/** 
 	 * Token, 또는 지시어에 따라 만들어진 오브젝트 코드들을 출력 형태로 저장하는 공간. <br>
 	 * 필요한 경우 String 대신 별도의 클래스를 선언하여 ArrayList를 교체해도 무방함.
 	 */
-	ArrayList<String> codeList;
 	
+	 ArrayList<ArrayList<String>> codeLists = new ArrayList<>();
+	 
 	/**
 	 * 클래스 초기화. instruction Table을 초기화와 동시에 세팅한다.
 	 * 
@@ -59,27 +60,27 @@ public class Assembler {
 		symtabList = new ArrayList<SymbolTable>();
 		literalList = new ArrayList<LiteralTable>();
 		TokenList = new ArrayList<TokenTable>();
-		codeList = new ArrayList<String>();
+		codeLists = new ArrayList<ArrayList<String>>();
+		sections = new ArrayList<>();
 	}
 
 	/** 
 	 * 어셐블러의 메인 루틴
 	 */
 	public static void main(String[] args) {
+		
+		//Aseembler 초기화
 		Assembler assembler = new Assembler("inst_table.txt");
-		System.out.printf("%02x\n",assembler.instTable.get_opcode("LDA"));
-		System.out.println("asdf");
 		
-		
+		//instruction set 입력받기
 		assembler.loadInputFile("input.txt");
-		//System.out.println(assembler.lineList);
 		
-		
+		//pass1 수행 symbol table 및 literal table 생성
 		assembler.pass1();
 		assembler.printSymbolTable("output_symtab.txt");
 		assembler.printLiteralTable("output_littab.txt");
 		
-		
+		//pass2 수행 명령어와 intermediate file을 보고 output objectcode 파일을 생성한다.
 		assembler.pass2();
 		assembler.printObjectCode("output_objectcode.txt");
 		
@@ -117,7 +118,8 @@ public class Assembler {
 		        for (int i = 0; i < symbols.size(); i++) {
 		            String name = symbols.get(i);
 		            int addr    = locations.get(i);
-		            // 4자리 16진수 대문자 포맷
+		            
+		            //파일 저장
 		            bw.write(name + "\t" + String.format("%04X", addr));
 		            bw.newLine();
 		        }
@@ -134,7 +136,7 @@ public class Assembler {
 	private void printLiteralTable(String fileName) {
 		// TODO Auto-generated method stub
 		  try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
-		        // lit 은 Assembler 필드로 선언된 LiteralTable 인스턴스
+		       
 			  for (LiteralTable lt : literalList) {
 				  	ArrayList<String> literals   = lt.getLiterals();
 			        ArrayList<Integer> addresses = lt.getAddresses();
@@ -169,29 +171,39 @@ public class Assembler {
 	    boolean literalFlag = false;
 	    int literalStart = 0;
 	    
+	    int sec_num = 0;
+	    
 	    // 3) 한 섹션 전용 심볼·리터럴·토큰 테이블
 	    SymbolTable symTab     = new SymbolTable();
 	    LiteralTable litTab    = new LiteralTable();
 	    TokenTable tokenTable  = new TokenTable(symTab, instTable,litTab);
+	    Section sect = new Section();
+	    
 	    symtabList.add(symTab);
 	    literalList.add(litTab);  
 	    TokenList.add(tokenTable);
+	    sections.add(sect);
+	    
 
 	    // 4) 입력 라인 하나씩 처리
 	    for (String line : lineList) {
 	        
-	        System.out.println(line);
+	        //System.out.println(line);
 	        // 토큰화
 	        tokenTable.putToken(line);
 	        Token t = tokenTable.getToken(tokenTable.size() - 1);
-	        System.out.println(t.label + "\t" + t.operator +"\t"+ Arrays.toString(t.operand));
+	        
 	        // 4-1) START
 	        if (t.operator != null && t.operator.equals("START")) {
-	            // operand[0] 에 시작 주소(10진수) 저장
+	            // 시작주소 설정
 	            locctr = Integer.parseInt(t.operand[0]);
 	            t.location = locctr;
+	            
 	            // 심볼테이블에 프로그램 이름(label) 등록
 	            symTab.putSymbol(t.label, locctr);
+	            sections.get(sec_num).name = t.label;
+	            sections.get(sec_num).startAddress = 0;
+	            sections.get(sec_num).isMain = true;
 	            continue;
 	        }
 
@@ -200,37 +212,55 @@ public class Assembler {
 	            if (literalFlag) {
 	                for (int j = literalStart; j < litTab.size(); j++) {
 	                    String lit = litTab.getLiterals().get(j);
+	                    
 	                    // 현재 locctr을 리터럴 주소로 설정
 	                    litTab.setLiteralAddress(lit, locctr);
+	                    
 	                    // 길이에 따라 locctr 증가 (C/X 형식)
 	                    if (lit.charAt(1) == 'C')
 	                        locctr += (lit.length() - 4);
 	                    else if (lit.charAt(1) == 'X')
 	                        locctr += (lit.length() - 4) / 2;
+	                    
 	                }
 	                literalFlag = false;
 	            }
 	        }
 
 	        // 4-3) CSECT: 새로운 섹션 시작
-	        if (t.operator != null && t.operator.equals("CSECT")) {
+	        if (t.operator != null && (t.operator.equals("CSECT"))) {
 	        	// 새 테이블 생성
 	            symTab  = new SymbolTable();
 	            litTab  = new LiteralTable();
 	            tokenTable  = new TokenTable(symTab, instTable, litTab);
+	            Section sect_other = new Section();
 	            // 리스트에 추가
 	            symtabList   .add(symTab);
 	            literalList   .add(litTab);
 	            TokenList .add(tokenTable);
-	            
+	            sections.add(sect_other);
+	        	      
+	            //그 전까지 길이 저장 header line을 위해
+	        	sections.get(sec_num).length = locctr;
+	        	
+	        	//section change
+	        	sec_num++;
+	        	
 	            // locctr 초기화, 이 토큰에 주소 저장, 심볼테이블에 CSECT 이름 등록
 	            locctr = 0;
+	            sections.get(sec_num).name = t.label;
+	            sections.get(sec_num).startAddress = 0;
+	            sections.get(sec_num).isMain = false;
 	            t.location = locctr;
 	            symTab.putSymbol(t.label, locctr);
 	            continue;
+	            
+	        }else if (t.operator != null && (t.operator.equals("END"))) {//END일 때 처리 length만 업데이트 header line을 위해
+	        	sections.get(sec_num).length = locctr;
+	            continue;
 	        }
-
-	        // 4-4) 라벨이 있으면 심볼테이블에 등록
+	        
+	        // 4-4) symbol table 등록
 	        if (t.label != null
 	         && !t.label.isEmpty()
 	         && t.label.charAt(0) != '.'
@@ -238,9 +268,10 @@ public class Assembler {
 	            symTab.putSymbol(t.label, locctr);
 	        }
 
-	        // 4-5) 리터럴 발견 시 테이블에 추가 (중복 체크 후)
+	        // 4-5) 중복 체크 및 literal table 등록
 	        if (t.operand[0] != null && t.operand[0].startsWith("=")) {
-	            if (litTab.searchLiteral(t.operand[0]) == -1) {
+	        	
+	            if (litTab.searchLiteral(t.operand[0]) == -1) {//중복 없을 때만
 	                litTab.putLiteral(t.operand[0]);
 	                // 다음 LTORG/END 때 처리할 시작 인덱스 설정
 	                literalFlag = true;
@@ -251,7 +282,7 @@ public class Assembler {
 	        // 4-6) 이 토큰의 주소 저장
 	        t.location = locctr;
 
-	        // 4-7) format4(+) 체크 및 mnemonic 분리
+	        // 5-1) format4(+) 체크 및 + 분리
 	        boolean isFormat4 = false;
 	        String op = t.operator;
 	        if (op != null && op.startsWith("+")) {
@@ -259,7 +290,7 @@ public class Assembler {
 	            op = op.substring(1);
 	        }
 
-	        // 4-8) 명령어 길이 계산
+	        // 5-2) 명령어 길이 계산
 	        Instruction inst = instTable.getInstruction(op);
 	        if (inst != null) {
 	            // format 2: 2바이트, 나머지는 3 또는 4바이트
@@ -281,7 +312,7 @@ public class Assembler {
 	        else if ("BYTE".equals(op)) {
 	            locctr += 1;
 	        }
-	        // 그 외는 locctr 변화 없음 (EQU, comment 등)
+	        // 그 외는 locctr 변화 없음 추후에 명령어 없을 때 예외처리 필요
 	    }
 		
 	}
@@ -292,26 +323,179 @@ public class Assembler {
 	 */
 	private void pass2() {
 		// TODO Auto-generated method stub
-		 codeList.clear();
+		 codeLists.clear();
+		 boolean start_flag = true;// start flag 
+		 boolean empty_flag = false;//empty flag
+		 
+		 //Text record 처리를 위한 변수
+		 int start_temp=0;//start address temp
+		 int length_temp=0;		 
+		 String obj_temp = new String();
+		 ArrayList<String> code_temp = new ArrayList<>();
+		 
+		 //Section별로 출력 이 경우에서는 3
+	    for (int sec = 0; sec < TokenList.size(); sec++) {
+	    	
+	    	//section 별 출력을 위한 block
+	        TokenTable   tokTab = TokenList   .get(sec);
+	        SymbolTable  symTab = symtabList   .get(sec);
+	        LiteralTable litTab = literalList  .get(sec);  
+	        ArrayList<String> codeList = new ArrayList<>();
+	        Section sect_temp = sections.get(sec);
+	        ArrayList<Section.Define> defines = sect_temp.defines;
+	        ArrayList<Section.Modification> modifis = sect_temp.modifications;
+	        ArrayList<Section.TextRecord> texts = sect_temp.textRecords;
+	        
+	        //변수 초기화
+	        start_temp = 0;
+	        length_temp = 0;
+	        
+	        //section별 token 순회
+	        for (int i = 0; i < tokTab.size(); i++) {
+	        	
+	            tokTab.makeObjectCode(i);//object 코드로 변환
+	          
+	            Token tok = tokTab.getToken(i);
+	            String obj = tokTab.getObjectCode(i);
+	            
+	            if (obj != null && !obj.isEmpty()) {//add object code
+	                codeList.add(obj);
+	            }
+	            
+	            //Definition record 처리
+	            if(tok.operator != null && tok.operator.equals("EXTDEF")) {
+	                for (String sym : tok.operand) {
+	                    if (sym == null) break;   
+	                    Section.Define d = new Section.Define();
+	                    d.symbol  = sym;
+	                    d.address = symTab.searchSymbol(sym);
+	                    defines.add(d);
+	                }
+	            }
+	            
+	            //reference record 처리
+	            if(tok.operator != null && tok.operator.equals("EXTREF")) {	            	
+	            	for (String ref : tok.operand) {	                      
+	                    if (ref == null) break;
+	                    sect_temp.references.add(ref);
+	                }
+	            	
+	            }
+	           
+	            //modification record 모르는거 일 때 처리 
+	            if((obj.length() > 6 && obj.substring(3).equals("00000")) || obj.equals("000000")) {
+	            	String oper_temp = tok.operand[0];
+	            	 if (oper_temp == null) break; 
+	            	 
+	            	 Section.Modification m = new Section.Modification();
+                     
+	            	 if(oper_temp.length() <= 6) {//모르는 거 하나일 때 무조건 다음과 같이 modificate
+	            		 m.symbol  = String.format("+%-6s", oper_temp);
+	                     m.address = tok.location+1;
+	                     m.length = 5;
+	                     modifis.add(m);
+	            	 }else {
+	            		 String[] parts = oper_temp.split("(?=[+-])");
+	            		 for(String s : parts) {
+	            			 char sign = (s.charAt(0)=='+' || s.charAt(0)=='-') ? s.charAt(0) : '+';
+	            			 String symbol = (sign == s.charAt(0)) ? s.substring(1)  : s;
+	            			 m.symbol  = String.format("%c%-6s", sign, symbol);
+		                     m.address = tok.location;
+		                     m.length = 6;
+		                     modifis.add(m);
+	            		 }
+	            	 }
+	            }
 
-		    
-		    for (int sec = 0; sec < TokenList.size(); sec++) {
-		        TokenTable   tokTab = TokenList   .get(sec);
-		        SymbolTable  symTab = symtabList   .get(sec);
-		        LiteralTable litTab = literalList  .get(sec);
-
-		        // 이 TokenTable.makeObjectCode 내부에서 
-		        // symTab.searchSymbol(), litTab.searchLiteral() 만 쓰게 됩니다.
-		        for (int i = 0; i < tokTab.size(); i++) {
-		            tokTab.makeObjectCode(i);
-		            String obj = tokTab.getObjectCode(i);
-		            if (obj != null && !obj.isEmpty()) {
-		                codeList.add(obj);
+	            //Text Record 처리
+	            if(obj != null) {
+	            	
+	            	 if(start_flag) {//시작이면
+	 	            	start_flag = false;
+	 	            	length_temp = 0;
+	 	            	start_temp = 0;
+	 	            	obj_temp = "";
+	 	            }
+	            	 
+	            	length_temp += obj.length()/2;//byte 단위
+	            	
+	            	//RESW는 값을 없지만 공간을 띄어줘야함 LTORG 예외처리
+	            	if((tok.operator != null) ) {
+	            		String s = tok.operator;
+	            		if(tok.operator.equals("RESB")) length_temp += 1;
+	            		if(tok.operator.equals("RESW")) length_temp += 3;
+	            		if(tok.operator.equals("LTORG")) {
+	            			start_temp = tok.location - obj.length()/2;
+	            		}
+	            	}
+	            	
+	            	//code_temp로 length 보조
+	            	code_temp.add(obj);
+	            	obj_temp += obj;
+	            	
+	            	//한 줄 길이 limit 정해서 줄 바꿈 해주거나 RESB처럼 빈 공간이 있을 때 처리
+	            	if(obj_temp.length()/2 > 28){
+	            		Section.TextRecord t = new Section.TextRecord();
+	            		//t에 값 등록
+	            		t.startAddress = start_temp;
+	                	t.objectCodes = new ArrayList<>(code_temp); 
+	                	t.length =  obj_temp.length()/2;
+	                	
+	                	//lists에 추가
+	                	texts.add(t);
+	                	
+	                	//다음 값 설정 
+	                	start_temp = start_temp+length_temp;
+	                	length_temp = 0;
+	                	obj_temp = "";
+	                	code_temp.clear();
 		            }
-		        }
-		        System.out.println(codeList);
-		        
-		    }
+	            	else if((tok.operator != null) && (tok.operator.equals("RESB") || tok.operator.equals("RESW")) ) {
+	            		if(!empty_flag) {
+	            			if(length_temp ==0) continue;
+			            	Section.TextRecord t = new Section.TextRecord();
+			            	//t에 값 등록
+		            		t.startAddress = start_temp;
+		                	t.objectCodes = new ArrayList<>(code_temp); 
+		                	t.length =  obj_temp.length()/2;
+		                	
+		                	//lists에 추가
+		                	texts.add(t);
+		                	
+		                	//다음 값 설정 
+		                	start_temp = start_temp+length_temp;
+		                	length_temp = 0;
+		                	obj_temp = "";
+		                	code_temp.clear();
+		                	empty_flag = true;
+	            		}
+		            }
+	            }
+	        }
+	        
+	        //max line이 안되고 끝났을 때 나머지 줄 flush
+	        if(!code_temp.isEmpty()) {
+	        	if(length_temp ==0) continue;
+            	Section.TextRecord t = new Section.TextRecord();
+            	//t에 값 등록
+        		t.startAddress = start_temp;
+            	t.objectCodes = new ArrayList<>(code_temp); 
+            	t.length =  obj_temp.length()/2;
+            	
+            	//lists에 추가
+            	texts.add(t);
+            	
+            	//다음 값 설정 
+            	start_temp = start_temp+length_temp;
+            	length_temp = 0;
+            	obj_temp = "";
+            	code_temp.clear();
+            	empty_flag = true;
+            }
+	        codeLists.add(codeList);
+	        //System.out.println(codeList);  
+	    }
+		    
 	}
 
 	/**
@@ -321,5 +505,104 @@ public class Assembler {
 	private void printObjectCode(String fileName) {
 		// TODO Auto-generated method stub
 		
+		try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
+			for(int i=0;i<codeLists.size();i++) {
+				
+				//System.out.println(codeLists.get(i));  
+				Section sec_temp = sections.get(i);
+				ArrayList<String> t_code = codeLists.get(i);
+				
+				//Section에 저장된 정보로 형식에 맞게 출력
+				//HEADER
+				String h = String.format(
+		                "H%-6s%06X%06X",
+		                sec_temp.name,sec_temp.startAddress,sec_temp.length
+		            );
+				System.out.println(h);
+				bw.write(h);
+	            bw.newLine();
+				
+				//DEFINE
+				if(sec_temp.defines.size() > 0) {
+					String d = new String();
+					d += "D";
+					for(int j=0;j<sec_temp.defines.size();j++) {
+						d += String.format("%-6s%06X",
+				                sec_temp.defines.get(j).symbol,        
+				                sec_temp.defines.get(j).address     
+				            );
+					}
+					System.out.println(d);
+					bw.write(d);
+		            bw.newLine();
+				}
+				
+				//REFERENCES
+				if(sec_temp.references.size() > 0) {
+					String r = new String();
+					r += "R";
+					for(int j=0;j<sec_temp.references.size();j++) {
+						r += String.format("%-6s",
+				                sec_temp.references.get(j)
+				            );
+					}
+					System.out.println(r);
+					bw.write(r);
+		            bw.newLine();
+				}
+				
+				//TEXT RECORD
+				if(sec_temp.textRecords.size() > 0) {
+					for(int j=0;j<sec_temp.textRecords.size();j++) {
+						String t = new String();
+						t += "T";
+						t += String.format("%06X%02X", 
+								sec_temp.textRecords.get(j).startAddress,
+								sec_temp.textRecords.get(j).length);
+						for(String s :sec_temp.textRecords.get(j).objectCodes ) {
+							t+=s;
+						}
+						System.out.println(t);
+						bw.write(t);
+			            bw.newLine();
+					}
+					
+				}			
+				
+				//MODIFICATION
+				if(sec_temp.modifications.size() > 0) {
+					
+					for(int j=0;j<sec_temp.modifications.size();j++) {
+						String m = new String();
+						m += "M";
+						m += String.format("%06X%02X%-6s",
+								sec_temp.modifications.get(j).address,    
+								sec_temp.modifications.get(j).length,
+								sec_temp.modifications.get(j).symbol
+				            ); 
+						System.out.println(m);
+						bw.write(m);
+			            bw.newLine();
+					}
+					
+				}
+				
+				//END
+				if(sec_temp.isMain) {
+					System.out.println("E000000");
+					bw.write("E000000");
+		            bw.newLine();
+				}else {
+					System.out.println("E");
+					bw.write("E");
+		            bw.newLine();
+				}
+				System.out.printf("\n");
+	            bw.newLine();
+			}
+			
+		}catch (IOException e) {
+	        e.printStackTrace();
+	    }
 	}
 }

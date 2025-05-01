@@ -13,6 +13,7 @@ public class LiteralTable {
         locationList = new ArrayList<>();
     }
     
+    //literal table에 literal 추가
     public void putLiteral(String literal) {
     	if (!literalList.contains(literal)) {
             literalList.add(literal);
@@ -22,11 +23,7 @@ public class LiteralTable {
 
     // 필요 메서드 추가 구현
     
-    /**
-     * 리터럴이 저장된 주소를 반환한다.
-     * @param literal 리터럴 문자열
-     * @return 저장된 주소, 없거나 아직 설정되지 않았으면 -1
-     */
+    //literal string 입력 받으면 주소값 return
     public int searchLiteral(String literal) {
         int idx = literalList.indexOf(literal);
         if (idx < 0) return -1;
@@ -34,18 +31,11 @@ public class LiteralTable {
         return (addr != null ? addr : -1);
     }
 
-    /**
-     * 테이블에 등록된 리터럴 개수를 반환한다.
-     */
-    public int size() {
+    public int size() {//literal table size 
         return literalList.size();
     }
-    /**
-     * 이미 추가된 리터럴에 대해 주소를 설정한다.
-     * @param literal  주소를 설정할 리터럴 문자열 (예: "=C'EOF'")
-     * @param address  할당할 주소값
-     * @throws IllegalArgumentException 해당 리터럴이 테이블에 없으면 예외 발생
-     */
+ 
+    //literal 값에 맞는 주소값 등록
     public void setLiteralAddress(String literal, int address) {
         int idx = literalList.indexOf(literal);
         if (idx < 0) {
@@ -53,18 +43,19 @@ public class LiteralTable {
         }
         locationList.set(idx, address);
     }
+  
+    public int getAddress(String literal) {//literal 주소값 return
+        int idx = searchLiteral(literal);
+        return (idx >= 0) ? locationList.get(idx) : -1;
+    }
     
-    /**
-     * 모든 리터럴 문자열 목록을 반환한다. (원본 보호를 위해 복사 반환)
-     */
-    public ArrayList<String> getLiterals() {
+    //file 출력 위해서
+    public ArrayList<String> getLiterals() {//모든 리터럴 문자열 목록을 반환한다.
         return new ArrayList<>(literalList);
     }
 
-    /**
-     * 모든 리터럴 주소 목록을 반환한다. (원본 보호를 위해 복사 반환)
-     */
-    public ArrayList<Integer> getAddresses() {
+    public ArrayList<Integer> getAddresses() {//모든 리터럴 주소 목록을 반환한다.
         return new ArrayList<>(locationList);
     }
+    
 }
