@@ -92,6 +92,4 @@ class Instruction {
         operandCount = Integer.parseInt(parts[3]);         // 오퍼랜드 개수
     }
 	//그 외 함수 자유 구현
-	
-	
 }

@@ -26,10 +26,7 @@ public class TokenTable {
 	
 	/** 각 line을 의미별로 분할하고 분석하는 공간. */
 	ArrayList<Token> tokenList;
-	
-	
-	
-	
+
 	/**
 	 * 초기화하면서 symTable과 instTable을 링크시킨다.
 	 * @param symTab : 해당 section과 연결되어있는 symbol table
@@ -72,7 +69,7 @@ public class TokenTable {
 	 * @param index
 	 */
 	
-	public boolean isValidOperator(String op) {
+	public boolean isValidOperator(String op) {//directive 명령어 처리
 		if(op.equals(".") || op != null) {
     		
     		switch(op) {

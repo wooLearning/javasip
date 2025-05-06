@@ -65,7 +65,7 @@ public class Assembler {
 	}
 
 	/** 
-	 * 어셐블러의 메인 루틴
+	 * 어셈블러의 메인 루틴
 	 */
 	public static void main(String[] args) {
 		
@@ -386,10 +386,9 @@ public class Assembler {
 	            if((obj.length() > 6 && obj.substring(3).equals("00000")) || obj.equals("000000")) {
 	            	String oper_temp = tok.operand[0];
 	            	 if (oper_temp == null) break; 
-	            	 
-	            	 Section.Modification m = new Section.Modification();
-                     
+	            
 	            	 if(oper_temp.length() <= 6) {//모르는 거 하나일 때 무조건 다음과 같이 modificate
+	            		 Section.Modification m = new Section.Modification();
 	            		 m.symbol  = String.format("+%-6s", oper_temp);
 	                     m.address = tok.location+1;
 	                     m.length = 5;
@@ -397,9 +396,12 @@ public class Assembler {
 	            	 }else {
 	            		 String[] parts = oper_temp.split("(?=[+-])");
 	            		 for(String s : parts) {
+	            			 Section.Modification m = new Section.Modification();
 	            			 char sign = (s.charAt(0)=='+' || s.charAt(0)=='-') ? s.charAt(0) : '+';
 	            			 String symbol = (sign == s.charAt(0)) ? s.substring(1)  : s;
 	            			 m.symbol  = String.format("%c%-6s", sign, symbol);
+	            			 //System.out.println(sign + "  " + symbol);
+	            			 System.out.println(m.symbol);
 		                     m.address = tok.location;
 		                     m.length = 6;
 		                     modifis.add(m);
